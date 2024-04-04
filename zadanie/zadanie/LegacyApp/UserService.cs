@@ -2,33 +2,80 @@
 
 namespace LegacyApp
 {
+    
+
+   
     public class UserService
     {
+        private static int _minAge = 21;
+
+        private static int _creditLimit = 500;
         public bool AddUser(string firstName, string lastName, string email, DateTime dateOfBirth, int clientId)
         {
-            if (string.IsNullOrEmpty(firstName) || string.IsNullOrEmpty(lastName))
+            if (!IsFirstNameCorrect(firstName) || !IsLastNameCorrect(lastName))
             {
                 return false;
             }
 
-            if (!email.Contains("@") && !email.Contains("."))
+            if (!IsEmailCorrect(email))
             {
                 return false;
             }
 
-            var now = DateTime.Now;
-            int age = now.Year - dateOfBirth.Year;
-            if (now.Month < dateOfBirth.Month || (now.Month == dateOfBirth.Month && now.Day < dateOfBirth.Day)) age--;
-
-            if (age < 21)
+            if (!IsAgeTooLow(dateOfBirth))
             {
                 return false;
             }
 
             var clientRepository = new ClientRepository();
             var client = clientRepository.GetById(clientId);
+            var user = CreateUser(firstName, lastName, email, dateOfBirth, client);
+            
+            SetUserCreditDetails(user,client);
+            
 
-            var user = new User
+            if (!IsValidUserCreditLimit(user))
+            {
+                return false;
+            }
+
+            UserDataAccess.AddUser(user);
+            return true;
+        }
+
+        public bool IsValidUserCreditLimit(User user)
+        {
+            return !user.HasCreditLimit || user.CreditLimit >= _creditLimit;
+        }
+
+        public void SetUserCreditDetails(User user, Client client)
+        {
+            if (client.Type == "VeryImportantClient")
+            {
+                user.HasCreditLimit = false;
+            }
+            else 
+            {
+                user.HasCreditLimit = true;
+
+                var userCreditService = new UserCreditService();
+                
+                int creditLimit = userCreditService.GetCreditLimit(user.LastName, user.DateOfBirth);
+                    
+                if (client.Type == "ImportantClient")
+                {
+                    creditLimit = creditLimit * 2;
+                }
+                    
+                user.CreditLimit = creditLimit;
+                
+            }
+            
+        }
+        private static User CreateUser(string firstName, string lastName, string email, DateTime dateOfBirth,
+            Client client)
+        {
+            return new User
             {
                 Client = client,
                 DateOfBirth = dateOfBirth,
@@ -36,37 +83,43 @@ namespace LegacyApp
                 FirstName = firstName,
                 LastName = lastName
             };
+        }
+        
 
-            if (client.Type == "VeryImportantClient")
-            {
-                user.HasCreditLimit = false;
-            }
-            else if (client.Type == "ImportantClient")
-            {
-                using (var userCreditService = new UserCreditService())
-                {
-                    int creditLimit = userCreditService.GetCreditLimit(user.LastName, user.DateOfBirth);
-                    creditLimit = creditLimit * 2;
-                    user.CreditLimit = creditLimit;
-                }
-            }
-            else
-            {
-                user.HasCreditLimit = true;
-                using (var userCreditService = new UserCreditService())
-                {
-                    int creditLimit = userCreditService.GetCreditLimit(user.LastName, user.DateOfBirth);
-                    user.CreditLimit = creditLimit;
-                }
-            }
+        private static int CalulateAgeUsingBirthDate(DateTime dateOfBirth)
+        {
+            var now = DateTime.Now;
+            int age = now.Year - dateOfBirth.Year;
+            
+            var isMonthAfterBirth = now.Month < dateOfBirth.Month;
+            var isCurrMonth = now.Month == dateOfBirth.Month;
+            var isDayAfterBirth = now.Day < dateOfBirth.Day;
+            
+            if (isMonthAfterBirth || (isCurrMonth && isDayAfterBirth)) age--;
+            return age;
+            
+        }
 
-            if (user.HasCreditLimit && user.CreditLimit < 500)
-            {
-                return false;
-            }
+        private static bool IsAgeTooLow(DateTime dateOfBirth)
+        {
+            var age = CalulateAgeUsingBirthDate(dateOfBirth);
+            return age >= _minAge;
 
-            UserDataAccess.AddUser(user);
-            return true;
+        }
+
+        private static bool IsEmailCorrect(string email)
+        {
+            return email.Contains("@") && email.Contains(".");
+        }
+
+        private static bool IsLastNameCorrect(string lastName)
+        {
+            return !string.IsNullOrEmpty(lastName);
+        }
+
+        private static bool IsFirstNameCorrect(string firstName)
+        {
+            return !string.IsNullOrEmpty(firstName);
         }
     }
 }
