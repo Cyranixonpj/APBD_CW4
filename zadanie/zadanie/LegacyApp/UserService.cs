@@ -1,10 +1,7 @@
 ﻿using System;
 
 namespace LegacyApp
-{
-    
-
-   
+{ 
     public class UserService
     {
         private static int _minAge = 21;
@@ -12,23 +9,14 @@ namespace LegacyApp
         private static int _creditLimit = 500;
         public bool AddUser(string firstName, string lastName, string email, DateTime dateOfBirth, int clientId)
         {
-            if (!IsFirstNameCorrect(firstName) || !IsLastNameCorrect(lastName))
+            if (!IsFirstNameCorrect(firstName) || !IsLastNameCorrect(lastName)||!IsEmailCorrect(email)||!IsAgeTooLow(dateOfBirth))
             {
                 return false;
             }
 
-            if (!IsEmailCorrect(email))
-            {
-                return false;
-            }
 
-            if (!IsAgeTooLow(dateOfBirth))
-            {
-                return false;
-            }
-
-            var clientRepository = new ClientRepository();
-            var client = clientRepository.GetById(clientId);
+            var client = GetClientById(clientId);
+            
             var user = CreateUser(firstName, lastName, email, dateOfBirth, client);
             
             SetUserCreditDetails(user,client);
@@ -46,6 +34,14 @@ namespace LegacyApp
         public bool IsValidUserCreditLimit(User user)
         {
             return !user.HasCreditLimit || user.CreditLimit >= _creditLimit;
+        }
+
+        public static Client GetClientById(int clientId)
+        {
+            var clientRepository = new ClientRepository();
+            var client = clientRepository.GetById(clientId);
+            return client;
+            
         }
 
         public void SetUserCreditDetails(User user, Client client)
